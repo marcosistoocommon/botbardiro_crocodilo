@@ -8,7 +8,6 @@ from config import load_config
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Job
 from bday import birthday_job
-from bday import get_birthday_message_sync, get_next_birthday_sync
 from handlers import register_handlers
 
 
@@ -43,12 +42,11 @@ def main() -> None:
 
     app = ApplicationBuilder().token(token).build()
 
-    # Install an asyncio exception handler to log uncaught exceptions
-    # Prefer get_running_loop to avoid DeprecationWarning when no loop exists.
+
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
-        # No running loop; create and set a new one for blocking executor usage.
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -99,9 +97,6 @@ def main() -> None:
 
     interval = datetime.timedelta(days=1)
     job_queue.run_repeating(_job_wrapper, interval=interval, first=first_run)
-    logger.info("Scheduled birthday job repeating every %s starting at %s (tz=%s)", interval, first_run, local_tz)
-
-    logger.info("Starting bot...")
     app.run_polling()
 
 

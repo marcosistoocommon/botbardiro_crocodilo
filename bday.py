@@ -171,7 +171,7 @@ def get_birthday_message_sync(supabase_url: str, supabase_key: str) -> str:
     todays = [u for u in users if get_date_field(u) and is_today(get_date_field(u))]
     if todays:
         names = ", ".join(str(get_name_field(u)) for u in todays)
-        return f"Hoy cumple años: {names}"
+        return f"Hoy cumple años: {names}. Muchas felicidades!"
     return "Hoy nadie cumple años"
 
 
