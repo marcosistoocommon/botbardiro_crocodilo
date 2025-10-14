@@ -53,5 +53,25 @@
     "timestamp": "2025-10-14T12:51:53.399052",
     "user": "∆lexito",
     "command": "/ping@it_euri_bot"
+  },
+  {
+    "timestamp": "2025-10-14T13:19:40.615545",
+    "user": "Marcos Pérez",
+    "command": "/ping"
+  },
+  {
+    "timestamp": "2025-10-14T13:19:46.141157",
+    "user": "Marcos Pérez",
+    "command": "/stats"
+  },
+  {
+    "timestamp": "2025-10-14T13:19:53.498855",
+    "user": "Marcos Pérez",
+    "command": "/getcumple@it_euri_bot"
+  },
+  {
+    "timestamp": "2025-10-14T13:23:04.708327",
+    "user": "∆lexito",
+    "command": "/stats"
   }
 ]

@@ -10,6 +10,7 @@ LOG_FILE = "commands_log.json"
 
 def log_command(user: str, command: str) -> None:
     """Registra un comando con usuario y hora en un archivo JSON."""
+    # Future: limpiar command para distinguir entre comando y comando@bot
     record = {
         "timestamp": datetime.now().isoformat(),
         "user": user,
