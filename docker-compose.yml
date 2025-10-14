@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  bot:
+    build: .
+    container_name: botbardiro
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./commands_log.json:/app/commands_log.json
+    command: python bot.py
