@@ -73,5 +73,10 @@
     "timestamp": "2025-10-14T13:23:04.708327",
     "user": "∆lexito",
     "command": "/stats"
+  },
+  {
+    "timestamp": "2025-10-14T16:15:36.742170",
+    "user": "Marcos Pérez",
+    "command": "/getcumple@it_euri_bot"
   }
 ]

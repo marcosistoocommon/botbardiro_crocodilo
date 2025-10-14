@@ -184,15 +184,32 @@ def get_next_birthday_sync(supabase_url: str, supabase_key: str) -> Dict:
     today = datetime.now().date()
 
     def next_occurrence(dt: datetime) -> datetime.date:
-        # return next year-adjusted date for a birthday
+        # Compute the next occurrence using only month and day (ignore birth year).
+        # Use current year as base; if that date is past, use next year.
+        # Handle Feb 29 by falling back to Feb 28 on non-leap years.
         try:
-            target = datetime(dt.year, dt.month, dt.day).date()
-        except Exception:
-            return None
+            target = datetime(today.year, dt.month, dt.day).date()
+        except ValueError:
+            # Likely Feb 29 on a non-leap current year -> fallback to Feb 28
+            if dt.month == 2 and dt.day == 29:
+                try:
+                    target = datetime(today.year, 2, 28).date()
+                except Exception:
+                    return None
+            else:
+                return None
+
         if target < today:
+            # use next year
             try:
-                return datetime(dt.year + 1, dt.month, dt.day).date()
-            except Exception:
+                return datetime(today.year + 1, dt.month, dt.day).date()
+            except ValueError:
+                # handle Feb 29 -> fallback to Feb 28 next year as well
+                if dt.month == 2 and dt.day == 29:
+                    try:
+                        return datetime(today.year + 1, 2, 28).date()
+                    except Exception:
+                        return None
                 return None
         return target
 
