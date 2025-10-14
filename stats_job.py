@@ -4,6 +4,8 @@ import logging
 from datetime import datetime
 import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
+from telegram import Update
+from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
 LOG_FILE = "commands_log.json"
@@ -36,19 +38,24 @@ def generate_stats_image(data):
     return STATS_IMAGE
 
 
-async def stats_job(application, config):
-    """Tarea diaria que envía las estadísticas y limpia el log."""
-    chat_id = config.BIRTHDAY_CHAT_ID
+async def stats_job(application, config, chat_id=None, clear_after=True):
+    logger.warning(f"[stats_job] Llamado con chat_id={chat_id}, clear_after={clear_after} y config={config}")
+    """Tarea diaria que envía las estadísticas y limpia el log.
+    Si chat_id se pasa, envía ahí; si no, usa config.BIRTHDAY_CHAT_ID.
+    clear_after: si True borra el log al final; si False lo mantiene (usado por /stats manual)."""
+    if chat_id is None:
+        chat_id = getattr(config, "BIRTHDAY_CHAT_ID", None)
 
     if not os.path.exists(LOG_FILE):
-        logger.info("No command log file found — skipping stats job.")
+        logger.error("[stats_job] No command log file found — skipping stats job.")
         return
 
     try:
         with open(LOG_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
+        logger.warning(f"[stats_job] Datos leídos: {data}")
     except Exception as e:
-        logger.error("Failed to read command log: %s", e)
+        logger.error(f"[stats_job] Failed to read command log: {e}")
         return
 
     if not data:
@@ -90,8 +97,22 @@ async def stats_job(application, config):
 
     # --- Limpieza ---
     try:
-        os.remove(LOG_FILE)
+        if clear_after:
+            os.remove(LOG_FILE)
         if os.path.exists(image_path):
             os.remove(image_path)
     except Exception as e:
         logger.warning("Failed to remove log/image files: %s", e)
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.warning(f"[stats_command] Recibido comando /stats en chat_id={update.effective_chat.id}")
+    chat_id = update.effective_chat.id
+    app = context.application
+    # Usa config global si está en bot_data, si no, usa el de config.py
+    config = context.bot_data.get("config")
+    if config is None:
+        from config import load_config
+        config = load_config()
+    await stats_job(app, config, chat_id=chat_id, clear_after=False)
+    logger.warning(f"[stats_command] stats_job ejecutado para chat_id={chat_id}")
+    await update.message.reply_text("📊 Estadísticas generadas manualmente.")

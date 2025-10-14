@@ -13,12 +13,13 @@ from handlers import register_handlers
 
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from stats_logger import log_command
-from stats_job import stats_job
+from stats_job import stats_job, stats_command
+
 
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.WARNING,
+    level=logging.INFO,
 )
 # Reduce verbosity of noisy third-party loggers
 for noisy in ("httpx", "httpcore", "telegram", "apscheduler"):
@@ -35,6 +36,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Available commands: /start, /help")
+
+
+async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("Received /ping from %s", update.effective_user and update.effective_user.id)
+    await update.message.reply_text("pong")
 
 
 def main() -> None:
@@ -73,9 +79,28 @@ def main() -> None:
             cmd = update.message.text.split()[0]
             log_command(user, cmd)
 
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/"), log_all_commands))
+    # Put the generic command logger in a later group so CommandHandlers run first
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/"), log_all_commands), group=1)
+    # Register manual stats command to generate/send today's stats on demand
+    app.add_handler(CommandHandler("stats", stats_command))
+    # lightweight ping for testing
+    app.add_handler(CommandHandler("ping", ping_command))
+
+    # Debug: log any update received (low priority group so it doesn't interfere)
+    async def _debug_any(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        logger.info("[debug_any] update: type=%s chat=%s user=%s text=%s", type(update), getattr(update, 'effective_chat', None), getattr(update, 'effective_user', None), getattr(update.message, 'text', None) if getattr(update, 'message', None) else None)
+
+    app.add_handler(MessageHandler(filters.ALL, _debug_any), group=99)
 
 
+
+    # determine local tz if available (debe ir antes de cualquier uso de local_tz)
+    try:
+        local_tz = datetime.datetime.now().astimezone().tzinfo
+    except Exception:
+        local_tz = None
+
+    # --- STATS JOB ---
     async def _stats_wrapper(context: ContextTypes.DEFAULT_TYPE):
         await stats_job(app, config)
 
@@ -93,25 +118,14 @@ def main() -> None:
     else:
         first_run_stats = today_target
 
+    job_queue = app.job_queue
     job_queue.run_repeating(_stats_wrapper, interval=datetime.timedelta(days=1), first=first_run_stats)
     logger.info("Scheduled daily stats job at 23:59 (tz=%s)", local_tz)
 
-
-    # Schedule birthday job every day at 9:00 local time
-    # python-telegram-bot's JobQueue expects a callback with signature (context)
-
+    # --- BIRTHDAY JOB ---
     async def _job_wrapper(context: ContextTypes.DEFAULT_TYPE):
         # Call the birthday_job which expects (application, config)
         await birthday_job(app, config)
-
-    # Use run_repeating: compute next local target (e.g., 09:00) and repeat every 24h.
-    job_queue = app.job_queue
-
-    # determine local tz if available
-    try:
-        local_tz = datetime.datetime.now().astimezone().tzinfo
-    except Exception:
-        local_tz = None
 
     desired_hour = int(os.getenv("BIRTHDAY_HOUR", "9"))
     desired_minute = int(os.getenv("BIRTHDAY_MINUTE", "0"))
