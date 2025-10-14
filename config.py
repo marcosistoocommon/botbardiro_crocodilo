@@ -1,9 +1,25 @@
 import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
+import pathlib
+import logging
 
+logger = logging.getLogger(__name__)
 
-load_dotenv()
+# Load .env from the project directory (next to this file). If missing, fall back to .env.example
+base = pathlib.Path(__file__).parent
+env_path = base / ".env"
+example_path = base / ".env.example"
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+    logger.info("Loaded environment from %s", env_path)
+elif example_path.exists():
+    load_dotenv(dotenv_path=example_path)
+    logger.info("Loaded environment from %s (fallback)", example_path)
+else:
+    # last resort: default behavior (current dir)
+    load_dotenv()
+    logger.warning("No .env or .env.example next to config.py; using default load_dotenv() behavior")
 
 
 @dataclass
