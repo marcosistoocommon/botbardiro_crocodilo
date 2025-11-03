@@ -134,7 +134,7 @@ async def birthday_job(application, config):
     if chat_id:
         try:
             logger.info("Attempting to send birthday message to chat_id=%s: %s", chat_id, message)
-            await application.bot.send_message(chat_id=int(chat_id), text=message)
+            await application.bot.send_message(chat_id=chat_id, text=message)
             logger.info("✅ Successfully sent birthday message: %s", message)
         except Exception as e:
             logger.exception("❌ Failed to send birthday message: %s", e)
