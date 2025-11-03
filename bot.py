@@ -144,6 +144,18 @@ def main() -> None:
 
     interval = datetime.timedelta(days=1)
     job_queue.run_repeating(_job_wrapper, interval=interval, first=first_run)
+    logger.info("Scheduled birthday job at %s:%s (first run: %s, tz=%s)", 
+                desired_hour, desired_minute, first_run, local_tz)
+
+    # Manual test command for birthday job
+    async def test_birthday_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Manually trigger the birthday job for testing."""
+        logger.info("Manual birthday job triggered by %s", update.effective_user.full_name if update.effective_user else "Unknown")
+        await birthday_job(app, config)
+        await update.message.reply_text("✅ Birthday job executed. Check logs for details.")
+    
+    app.add_handler(CommandHandler("testBirthday", test_birthday_command))
+    
     app.run_polling()
 
 

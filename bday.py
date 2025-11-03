@@ -86,10 +86,15 @@ def parse_date(date_str: str) -> datetime | None:
 
 
 async def birthday_job(application, config):
-
+    logger.info("Birthday job started at %s", datetime.now())
+    
     supabase_url = config.SUPABASE_URL
     supabase_key = config.SUPABASE_KEY
     chat_id = config.BIRTHDAY_CHAT_ID
+
+    logger.info("Birthday job config: chat_id=%s, supabase_url=%s", 
+                chat_id if chat_id else "NOT SET", 
+                "SET" if supabase_url else "NOT SET")
 
     if not (supabase_url and supabase_key):
         logger.error("Supabase config not set; skipping birthday job.")
@@ -118,6 +123,8 @@ async def birthday_job(application, config):
 
     todays = [u for u in users if get_date_field(u) and is_today(get_date_field(u))]
 
+    logger.info("Found %d total users, %d with birthdays today", len(users), len(todays))
+    
     if todays:
         names = ", ".join(str(get_name_field(u)) for u in todays)
         message = f"Hoy cumple años: {names}"
@@ -126,12 +133,13 @@ async def birthday_job(application, config):
 
     if chat_id:
         try:
+            logger.info("Attempting to send birthday message to chat_id=%s: %s", chat_id, message)
             await application.bot.send_message(chat_id=int(chat_id), text=message)
-            logger.info("Sent birthday message: %s", message)
+            logger.info("✅ Successfully sent birthday message: %s", message)
         except Exception as e:
-            logger.exception("Failed to send birthday message: %s", e)
+            logger.exception("❌ Failed to send birthday message: %s", e)
     else:
-        logger.info("Birthday message (not sent): %s", message)
+        logger.warning("⚠️  BIRTHDAY_CHAT_ID not configured. Message not sent: %s", message)
 
 
 def fetch_birthdays_sync(supabase_url: str, supabase_key: str) -> List[Dict]:
