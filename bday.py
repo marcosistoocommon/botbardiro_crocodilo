@@ -2,6 +2,10 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import List, Dict
+import random
+import re
+import requests
+from bs4 import BeautifulSoup
 
 from supabase import create_client
 
@@ -86,6 +90,101 @@ def parse_date(date_str: str) -> datetime | None:
 
 
 async def birthday_job(application, config):
+
+    def rand_wiki():
+        try:
+            today = datetime.now()
+            months = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+                     "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+            page_title = f"{today.day}_de_{months[today.month - 1]}"
+            
+            # Use Wikipedia API instead of scraping
+            api_url = "https://es.wikipedia.org/w/api.php"
+            params = {
+                'action': 'parse',
+                'page': page_title,
+                'prop': 'text',
+                'format': 'json',
+                'formatversion': '2'
+            }
+            headers = {
+                'User-Agent': 'BotBardiro/1.0 (Telegram Bot; birthday notifications)'
+            }
+            
+            response = requests.get(api_url, params=params, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if 'parse' not in data:
+                return "No parse in data"
+            
+            html_content = data['parse']['text']
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Find Nacimientos section - try multiple approaches
+            # 1. Look for span with id='Nacimientos'
+            nacimientos_span = soup.find('span', id='Nacimientos')
+            
+            # 2. If not found, look for any heading containing "Nacimientos"
+            if not nacimientos_span:
+                for heading in soup.find_all(['h2', 'h3', 'span']):
+                    if 'Nacimientos' in heading.get_text():
+                        nacimientos_span = heading
+                        break
+            
+            if not nacimientos_span:
+                logger.warning("Could not find 'Nacimientos' section")
+                return "No header found"
+            
+            # Find the nearest h2/h3 parent or the element itself if it's a heading
+            if nacimientos_span.name in ['h2', 'h3']:
+                nacimientos_heading = nacimientos_span
+            else:
+                nacimientos_heading = nacimientos_span.find_parent(['h2', 'h3'])
+            
+            # Find all ul elements that come after the Nacimientos section
+            births = []
+            
+            if nacimientos_heading:
+                # Find the next section heading to know where to stop
+                next_section = nacimientos_heading.find_next(['h2', 'h3'])
+                
+                # Get all ul elements between this heading and the next
+                current = nacimientos_heading
+                while current and current != next_section:
+                    current = current.find_next()
+                    if current == next_section:
+                        break
+                    if current and current.name == 'ul':
+                        for li in current.find_all('li', recursive=False):
+                            text = li.get_text(strip=True)
+                            if text:
+                                births.append(text)
+                        if births:  # Found births, stop looking
+                            break
+            else:
+                # Fallback: find next ul after the span
+                ul_element = nacimientos_span.find_next('ul')
+                if ul_element:
+                    for li in ul_element.find_all('li', recursive=False):
+                        text = li.get_text(strip=True)
+                        if text:
+                            births.append(text)
+            
+            logger.info("Found %d birth entries", len(births))
+            if not births:
+                return "No births found"
+            
+            # Select random birth and extract name
+            selected = random.choice(births)
+            match = re.match(r'^\d+\s*[:.]?\s*([^,\(]+)', selected)
+            name = match.group(1).strip() if match else selected
+            
+            return f"Nadie de euri cumple años, pero hoy cumple {name}"
+        except Exception as e:
+            logger.error("Error fetching Wikipedia: %s", e)
+            return "Hoy nadie cumple años"
+
     logger.info("Birthday job started at %s", datetime.now())
     
     supabase_url = config.SUPABASE_URL
@@ -130,6 +229,7 @@ async def birthday_job(application, config):
         message = f"Hoy cumple años: {names}"
     else:
         message = "Hoy nadie cumple años"
+        message = rand_wiki()
 
     if chat_id:
         try:
