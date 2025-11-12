@@ -11,8 +11,7 @@ from bday import birthday_job
 from handlers import register_handlers
 
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
-from stats_logger import log_command
-from stats_job import stats_job, stats_command
+
 
 
 
@@ -71,16 +70,8 @@ def main() -> None:
 
     # Register command handlers from handlers.py
     register_handlers(app, config)
-    async def log_all_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.message and update.message.text and update.message.text.startswith("/"):
-            user = update.effective_user.full_name if update.effective_user else "Desconocido"
-            cmd = update.message.text.split()[0]
-            log_command(user, cmd)
 
-    # Put the generic command logger in a later group so CommandHandlers run first
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^/"), log_all_commands), group=1)
-    # Register manual stats command to generate/send today's stats on demand
-    app.add_handler(CommandHandler("stats", stats_command))
+
     # lightweight ping for testing
     app.add_handler(CommandHandler("ping", ping_command))
 
@@ -98,27 +89,8 @@ def main() -> None:
     except Exception:
         local_tz = None
 
-    # --- STATS JOB ---
-    async def _stats_wrapper(context: ContextTypes.DEFAULT_TYPE):
-        await stats_job(app, config)
-
-    now = datetime.datetime.now().astimezone() if local_tz else datetime.datetime.now()
-    try:
-        if local_tz:
-            today_target = datetime.datetime(now.year, now.month, now.day, 23, 59, tzinfo=local_tz)
-        else:
-            today_target = datetime.datetime(now.year, now.month, now.day, 23, 59)
-    except Exception:
-        today_target = datetime.datetime(now.year, now.month, now.day, 23, 59)
-
-    if today_target <= now:
-        first_run_stats = today_target + datetime.timedelta(days=1)
-    else:
-        first_run_stats = today_target
 
     job_queue = app.job_queue
-    job_queue.run_repeating(_stats_wrapper, interval=datetime.timedelta(days=1), first=first_run_stats)
-    logger.info("Scheduled daily stats job at 23:59 (tz=%s)", local_tz)
 
     # --- BIRTHDAY JOB ---
     async def _job_wrapper(context: ContextTypes.DEFAULT_TYPE):
