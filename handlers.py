@@ -6,7 +6,7 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 
-from bday import get_next_birthday_sync
+from bday import get_next_birthday_sync, join_names
 
 logger = logging.getLogger(__name__)
 
@@ -44,16 +44,6 @@ def register_handlers(app: Any, config) -> None:
         base_name = str(data.get('name') or data.get('id') or 'desconocido')
         raw_others = data.get('others') or []
         others = [str(o) for o in raw_others if str(o) and str(o) != base_name]
-
-        def join_names(names):
-            names = [n for n in names if n]
-            if not names:
-                return ''
-            if len(names) == 1:
-                return names[0]
-            if len(names) == 2:
-                return f"{names[0]} y {names[1]}"
-            return f"{', '.join(names[:-1])} y {names[-1]}"
 
         name = join_names([base_name] + others)
 

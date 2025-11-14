@@ -12,6 +12,24 @@ from supabase import create_client
 logger = logging.getLogger(__name__)
 
 
+def join_names(names):
+    """Join a list of names into a human-friendly string.
+
+    Examples:
+      [] -> ''
+      ['A'] -> 'A'
+      ['A','B'] -> 'A y B'
+      ['A','B','C'] -> 'A, B y C'
+    """
+    names = [n for n in names if n]
+    if not names:
+        return ''
+    if len(names) == 1:
+        return names[0]
+    if len(names) == 2:
+        return f"{names[0]} y {names[1]}"
+    return f"{', '.join(names[:-1])} y {names[-1]}"
+
 async def fetch_birthdays(supabase_url: str, supabase_key: str) -> List[Dict]:
 
     client = create_client(supabase_url, supabase_key)
@@ -180,7 +198,7 @@ async def birthday_job(application, config):
             match = re.match(r'^\d+\s*[:.]?\s*([^,\(]+)', selected)
             name = match.group(1).strip() if match else selected
             
-            return f"Nadie de euri cumple años, pero hoy cumple {name}"
+            return f"Nadie de euri cumple años hoy, pero hoy cumple {name}"
         except Exception as e:
             logger.error("Error fetching Wikipedia: %s", e)
             return "Hoy nadie cumple años"
@@ -223,12 +241,12 @@ async def birthday_job(application, config):
     todays = [u for u in users if get_date_field(u) and is_today(get_date_field(u))]
 
     logger.info("Found %d total users, %d with birthdays today", len(users), len(todays))
+
     
     if todays:
-        names = ", ".join(str(get_name_field(u)) for u in todays)
-        message = f"Hoy cumple años: {names}"
+        names = join_names([str(get_name_field(u)) for u in todays])
+        message = f"Hoy es el cumpleaños de {names}! 🎉🎂"
     else:
-        message = "Hoy nadie cumple años"
         message = rand_wiki()
 
     if chat_id:
